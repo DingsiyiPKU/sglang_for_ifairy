@@ -1,3 +1,3 @@
-运行前一定要把config中hidden_size变为原来两倍！
-运行前一定要把config中hidden_size变为原来两倍！
-运行前一定要把config中hidden_size变为原来两倍！
+运行前一定要把config中hidden_size变为原来两倍！  
+运行前一定要把config中hidden_size变为原来两倍！  
+运行前一定要把config中hidden_size变为原来两倍！  
