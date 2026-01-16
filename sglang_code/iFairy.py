@@ -371,14 +371,6 @@ class  ComplexUpLinear(nn.Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        '''self.weight = MergedColumnParallelLinear(
-                input_size = in_features,
-                output_sizes=[out_features *2, out_features * 2],
-                bias= False,
-                quant_config=quant_config,
-                gather_output=True,
-                prefix=prefix,
-            )'''
         self.gate_weight = ComplexLinearBase(
                 in_features = in_features ,
                 out_features= out_features ,
@@ -397,18 +389,6 @@ class  ComplexUpLinear(nn.Module):
                 input_imag:torch.Tensor,if_print : bool = False) -> Tuple[torch.Tensor,torch.Tensor,torch.Tensor,torch.Tensor]:
         assert input_real.size() == input_imag.size() ,"Shape mismatch"
        
-        '''input_real_quant,input_imag_quant = self.quantizer(input_real,input_imag)
-        input_real_and_imag  = torch.cat([input_real_quant, input_imag_quant], dim=0)
-        Merged_output,_  = self.weight(input_real_and_imag)
-       
-        real_product, imag_product =  torch.chunk(Merged_output, 2, dim=0)
-       
-        Gate_real_product,Up_real_product = real_product.split(self.out_features * 2, dim=-1)
-        Gate_imag_product,Up_imag_product = imag_product.split(self.out_features * 2, dim=-1)
-       
-        Gate_real,Gate_imag = IntergrateRealAndImag(Gate_real_product, Gate_imag_product ,self.out_features)
-        Up_real,Up_imag = IntergrateRealAndImag(Up_real_product, Up_imag_product ,self.out_features)'''
-
         Gate_real,Gate_imag = self.gate_weight(input_real,input_imag)
 
         Up_real,Up_imag = self.up_weight(input_real,input_imag)
@@ -416,48 +396,6 @@ class  ComplexUpLinear(nn.Module):
         return Gate_real,Gate_imag,Up_real,Up_imag 
        
                
-'''class ComplexQKVLinear(nn.Module):
-    def __init__(self, head_dim:int , total_num_heads:int, total_num_kv_heads:int, quant_config: Optional[QuantizationConfig] = None, prefix: str = "",) -> None:
-        super().__init__()
-        self.total_num_heads = total_num_heads
-        self.total_num_kv_heads = total_num_kv_heads
-        self.head_dim = head_dim
-        self.hidden_size = head_dim * total_num_heads
-        self.q_real_imag_size = self.head_dim * self.total_num_heads  *2
-       
-        self.kv_real_imag_size = self.head_dim * self.total_num_kv_heads *2
-       
-       
-       
-        self.weight = QKVParallelLinear(
-            self.hidden_size ,
-            self.head_dim * 2,
-            self.total_num_heads,
-            self.total_num_kv_heads,
-            bias= False,
-            quant_config=quant_config,
-            prefix=add_prefix("qkv_proj", prefix),
-        )
-        self.quantizer = ComplexActivationQuantizer()
-    def forward(self, input_real: torch.Tensor,input_imag: torch.Tensor,) -> Tuple [torch.Tensor,torch.Tensor,torch.Tensor,torch.Tensor,torch.Tensor]:
-        assert input_real.size() == input_imag.size() ,"Shape mismatch"
-        input_real,input_imag = self.quantizer(input_real,input_imag)
-        input_real_and_imag  = torch.cat([input_real, input_imag], dim=0)
-        Merged_qkv,_  = self.weight(input_real_and_imag)  
-        qkv_real_product,qkv_imag_product = torch.chunk(Merged_qkv, 2, dim=0)
-        q_real_product, k_real_product, v_real_product = qkv_real_product.split(
-            [self.q_real_imag_size, self.kv_real_imag_size, self.kv_real_imag_size], dim=-1
-        )
-        q_imag_product, k_imag_product, v_imag_product = qkv_imag_product.split(
-            [self.q_real_imag_size, self.kv_real_imag_size, self.kv_real_imag_size], dim=-1
-        )
-       
-        q_real,q_imag = IntergrateRealAndImag(q_real_product,q_imag_product,self.q_real_imag_size//2)
-       
-        k_real,k_imag = IntergrateRealAndImag(k_real_product,k_imag_product,self.kv_real_imag_size//2)
-        v_real_imag = IntergrateRealAndImag(v_real_product,v_imag_product,self.kv_real_imag_size//2,need_split=False)
-       
-        return q_real,q_imag,k_real,k_imag,v_real_imag'''
         
 class ComplexQKVLinear(nn.Module):
     def __init__(self, head_dim:int , total_num_heads:int, total_num_kv_heads:int, quant_config: Optional[QuantizationConfig] = None, prefix: str = "",) -> None:
@@ -674,37 +612,9 @@ class ComplexNetAttention(nn.Module):
         attn_normalized_real_imag = self.attn_layernorm(attn_output_real_imag)
         
         attn_real,attn_imag = torch.chunk( attn_normalized_real_imag , 2, dim=-1)
-        
-                
-        '''ckpt = torch.load('/home/wangyuxing/q.pt', map_location='cuda')    
-        q_real_need = ckpt['attn']['real']
-        q_imag_need = ckpt['attn']['imag']
-        q_imag_need = q_imag_need.squeeze(0)
-        q_real_need = q_real_need.squeeze(0)
-        real_out = attn_real
-        imag_out = attn_imag
-        print(q_real_need.shape)
-        print((q_real_need - real_out).abs().mean())
-        print((q_imag_need - imag_out).abs().mean())
-        import sys
-        sys.exit()'''
 
         output_real,output_imag = self.o_proj(attn_real,attn_imag)
         
-        '''ckpt = torch.load('/home/wangyuxing/q.pt', map_location='cuda')    
-        q_real_need = ckpt['attn']['real']
-        q_imag_need = ckpt['attn']['imag']
-        q_imag_need = q_imag_need.squeeze(0)
-        q_real_need = q_real_need.squeeze(0)
-        real_out = output_real
-        imag_out = output_imag
-        print(q_real_need.shape)
-        print("检验输出")
-        print((q_real_need[0] - real_out[0]).abs().mean())
-        print((q_imag_need[0] - imag_out[0]).abs().mean())
-        import sys
-        sys.exit()'''
-       
         return output_real,output_imag
     def _apply_rope_complex(self, x_real, x_imag, cos, sin):
         """Apply complex RoPE rotation (aligned with HuggingFace _apply_rotary_pos_emb)
@@ -1076,109 +986,6 @@ class ComplexNetLM(nn.Module):
    
     def load_kv_cache_scales(self, quantization_param_path: str) -> None:
         self.model.load_kv_cache_scales(quantization_param_path)
-   
-   
-   
-    # ... 在您的主模型类中 ...
-    '''def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
-        """
-        Custom weight loader for Single-GPU inference.
-        Handles parameter renaming, tensor fusion (QKV/GateUp), and weight tying.
-        """
-        # 1. 定义映射表：源参数名片段 -> (目标融合参数名片段, 分片ID)
-        stacked_params_mapping = [
-            # (target_param_name, source_weight_name, shard_id)
-            ("qkv_proj", "q_proj", "q"),
-            ("qkv_proj", "k_proj", "k"),
-            ("qkv_proj", "v_proj", "v"),
-            ("gate_up_proj", "gate_proj", 0),
-            ("gate_up_proj", "up_proj", 1),
-        ]
-        params_dict = dict(self.named_parameters())
-       
-        print("--- [ComplexNet] Starting Single-GPU Custom Weight Loading ---")
-        i = 0
-        for name in tqdm(params_dict):
-            print(f"模型的第{i}个参数名为{name}")
-            i+=1
-            if i > 100:
-                break
-       
-        for name, loaded_weight in tqdm(weights, desc="Loading Weights"):
-           
-           
-            if name != "lm_head.weight":
-                name = "model." + name
-           
-            # 2. 跳过无关参数
-            if "rotary_emb.inv_freq" in name or "projector" in name:
-                continue
-            if "rotary_emb.cos_cached" in name or "rotary_emb.sin_cached" in name:
-                continue
-           
-            # 3. 处理权重绑定 (Weight Tying)
-            # 在单卡模式下，init 中已经执行了 self.lm_head.weight = self.model.embed_tokens.weight
-            # 所以当加载到 "lm_head.weight" 时，我们直接跳过，避免重复加载或覆盖
-            if self.config.tie_word_embeddings and "lm_head.weight" in name:
-                continue
-            if name.startswith("model.vision_tower") and name not in params_dict:
-                continue
-            # --- 核心加载逻辑：处理融合层 (Fused Layers) ---
-            is_stacked = False
-            for param_name, weight_name, shard_id in stacked_params_mapping:
-                # 检查当前权重是否属于某个融合组 (e.g. "q_proj" in "model...self_attn.q_proj.weight")
-                if weight_name not in name:
-                    continue
-               
-                # 构造目标参数名 (e.g. "model...self_attn.qkv_proj.weight")
-                row_target_name = name.replace(weight_name, param_name)
-               
-                # 跳过 GPTQ 的额外 bias
-                if row_target_name.endswith(".bias") and row_target_name not in params_dict:
-                    continue
-               
-                target_name = row_target_name + ".weight"
-               
-                if target_name in params_dict:
-                    param = params_dict[target_name]
-                    # 调用 SGLang 参数对象自带的加载器，指定分片ID
-                    # 即使是单卡，这个 loader 也能正确处理拼接逻辑
-                    weight_loader = param.weight_loader
-                    weight_loader(param, loaded_weight, shard_id)
-                    is_stacked = True
-                    break
-           
-            if is_stacked:
-                continue
-            # --- 核心加载逻辑：处理普通层 (Normal Layers) ---
-            # e.g., embed_tokens, layernorm, o_proj, down_proj
-           
-            # Skip loading extra bias for GPTQ models.
-            if name.endswith(".bias") and name not in params_dict:
-                continue
-            if name in params_dict:
-                param = params_dict[name]
-                # 使用默认加载器直接拷贝权重
-                weight_loader = getattr(
-                    param, "weight_loader", default_weight_loader
-                )
-                weight_loader(param, loaded_weight)
-               
-               
-            else:
-                deal_name = name + ".weight"
-                if deal_name in params_dict:
-                    param = params_dict[deal_name]
-                    weight_loader = getattr(
-                    param, "weight_loader", default_weight_loader
-                    )
-                    weight_loader(param, loaded_weight)
-                else:    
-                # 这是一个预期的警告，如果源文件包含一些模型不需要的参数
-                # logger.warning(f"Parameter {name} not found in params_dict")
-                    print(f" [WARNING] 权重未匹配到 SGLang 模型: {name}")
-       
-        print("--- [ComplexNet] Weight Loading Finished ---")'''
         
     def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
         params_dict = dict(self.named_parameters())

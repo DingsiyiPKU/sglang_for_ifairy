@@ -4,4 +4,4 @@
 3. 运行transformer_infer.py
 4. 设置ifairy_wright_intergrate.py中模型路径和转化后路径
 5. 运行ifairy_wright_intergrate.py
-6. 删除model.safetensors.index.json文件
+6. 删除model.safetensors.index.json文件（如果有）

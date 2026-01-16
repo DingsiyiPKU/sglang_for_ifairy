@@ -27,13 +27,13 @@ def main():
     
     
 
-    
+    new_state_dict = {}
     try:
         for path in input_path:
             print(f"正在加载原始权重: {path}")
         # 加载文件
             state_dict = load_file(path, device="cpu")
-            new_state_dict = {}
+            
             
             # 遍历所有权重
             for name, tensor in tqdm.tqdm(state_dict.items()):           
