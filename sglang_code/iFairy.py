@@ -846,7 +846,7 @@ class ComplexNetLMBase(nn.Module):
             self.config.model_type,
         ):
             if not isinstance(self.layer[layer_idx], nn.Identity):
-                layer_self_attn = self.layers[layer_idx].self_attn
+                layer_self_attn = self.layer[layer_idx].self_attn
             if hasattr(layer_self_attn.attn, "k_scale"):
                 layer_self_attn.attn.k_scale = scaling_factor
                 layer_self_attn.attn.v_scale = scaling_factor
